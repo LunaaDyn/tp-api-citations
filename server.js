@@ -8,11 +8,6 @@ app.use(express.json());
 
 const citations = [
     { id: 1, texte: "Apprendre en pratiquant.", auteur: "Équipe du TP" },
-    {
-        id: 2,
-        texte: "If you win, you need not have to explain...If you lose, you should not be there to explain!",
-        auteur: "Adolf Hitler",
-    },
 ];
 // let prochainId = 3;      this line is redundant
 
