@@ -1,55 +1,57 @@
-# TP 1 · Répondre à une requête HTTP avec Express
+# 02 · Un CRUD avec Express
 
-Tu vas compléter deux réponses du serveur de citations. À la fin du TP, `/citations` doit renvoyer la liste au format JSON et une adresse inconnue doit renvoyer une erreur `404`.
+[Parcours et rendu](PARCOURS.md) · Lance `npm install` puis `npm start`.
 
-## 1. Démarrer le projet
+## Voir le résultat dans le navigateur
 
-Place-toi dans le dossier du dépôt. Avec Node.js 22 ou plus récent, lance ces commandes dans le terminal.
+Ouvre [la page EJS](http://localhost:3000/) après avoir démarré le serveur. Rafraîchis-la après une requête d’ajout, de modification ou de suppression pour voir la liste à jour. Les requêtes CRUD se font avec curl, Postman ou Bruno. La route `/ping` renvoie du texte avec `res.send()`, et les routes de l’API utilisent `res.json()` pour les réponses JSON.
 
-```bash
-npm install
-npm start
+## Mini-cours · Construire un CRUD en mémoire
+
+CRUD désigne les quatre actions sur les données. Dans ce TP, le tableau de citations est conservé en mémoire pendant que le serveur tourne. Un redémarrage recharge le tableau de départ.
+
+| Action    | Requête               | Où lire les données envoyées                                      |
+| --------- | --------------------- | ----------------------------------------------------------------- |
+| Créer     | `POST /citations`     | `req.body` contient le texte et l’auteur                          |
+| Lire      | `GET /citations/1`    | `req.params.id` vaut `"1"`                                        |
+| Modifier  | `PUT /citations/1`    | L’ID est dans `req.params` et les nouveaux champs dans `req.body` |
+| Supprimer | `DELETE /citations/1` | L’ID est dans `req.params`                                        |
+
+### Retrouver une citation
+
+`req.params.id` est une chaîne. Convertis-la avec `Number()` pour la comparer aux identifiants numériques du tableau. `find()` renvoie le premier objet correspondant ou `undefined`. `findIndex()` renvoie sa position ou `-1`. Vérifie que tu as trouvé la citation avant de lire ses propriétés, de la modifier ou d’utiliser `splice()`.
+
+```js
+const id = Number(req.params.id);
+const citation = citations.find((element) => element.id === id);
 ```
 
-Ouvre [http://localhost:3000/](http://localhost:3000/) dans ton navigateur. Tu dois voir la page **Citations** et la citation de départ. Garde le serveur ouvert et utilise un deuxième terminal pour lancer les commandes `curl`.
+### Vérifier les données et répondre
 
-| Adresse | Réponse au départ |
-|---|---|
-| `/` | Une page HTML générée avec EJS |
-| `/ping` | Le message texte « Serveur de citations prêt. » |
-| `/citations` et `/inconnue` | Le statut provisoire `501` et le message « À compléter » |
+`express.json()` lit le corps des requêtes envoyées avec `Content-Type: application/json`. Pour POST et PUT, vérifie d’abord le type des champs avec `typeof`, puis retire les espaces au début et à la fin avec `trim()`. Un champ composé uniquement d’espaces devient vide. Quand tu crées une citation, attribue-lui la valeur de `prochainId`, puis incrémente le compteur.
 
-## 2. Comprendre le code fourni
+Utilise `400` pour une entrée invalide, `404` pour une citation introuvable et `201` après une création. Après une suppression réussie, utilise `res.status(204).end()` pour envoyer une réponse sans corps. Quand tu envoies une réponse d’erreur dans un `if`, utilise `return` pour arrêter la fonction à cet endroit.
 
-Dans `app.get("/ping", (req, res) => { … })`, Express exécute la fonction quand il reçoit un `GET /ping`. `req` représente la requête envoyée par le client. `res` sert à construire la réponse.
+## À toi de jouer
 
-- `res.send()` envoie ici un message texte. La route `/ping` précise ce format avec `res.type("text/plain")`.
-- `res.json()` transforme un tableau ou un objet JavaScript en JSON et indique ce format dans la réponse.
-- `res.render("index", { citations })` transmet le tableau à `views/index.ejs`. La boucle du fichier EJS affiche chaque citation dans la page HTML.
+`GET /citations` fonctionne déjà. Complète les quatre autres routes dans cet ordre.
 
-L’en-tête `Content-Type` indique le format du contenu reçu. Avec `curl -i`, tu verras le statut HTTP, les en-têtes et le contenu de la réponse.
+| Requête                 | Réponse attendue                               |
+| ----------------------- | ---------------------------------------------- |
+| `GET /citations/:id`    | 200 et la citation, ou 404 si elle est absente |
+| `POST /citations`       | 201 et la citation avec un nouvel identifiant  |
+| `PUT /citations/:id`    | 200 et la citation mise à jour, ou 404         |
+| `DELETE /citations/:id` | 204 avec un corps vide, ou 404                 |
 
-## 3. Compléter les deux TODO dans server.js
-
-1. **Lister les citations.** Dans `GET /citations`, remplace la réponse provisoire par une réponse JSON qui contient le tableau `citations` déjà déclaré dans le fichier. Vérifie que la route renvoie `200`.
-2. **Répondre à une adresse inconnue.** Dans le dernier `app.use()`, remplace la réponse provisoire par un statut `404` et le JSON `{"message":"Route introuvable"}`. Express arrive à ce bloc quand aucune route précédente n’a répondu.
-
-Si tu as lancé le serveur avec `npm start`, arrête-le avec **Ctrl+C** puis relance-le après avoir enregistré tes modifications. Tu peux aussi utiliser `npm run dev` pour le redémarrage automatique.
-
-## 4. Tester et préparer le rendu
+Pour POST et PUT, vérifie que `texte` et `auteur` sont des chaînes non vides après `trim()`. Sinon, renvoie 400 et un message JSON. Pour PUT, garde le même identifiant. Utilise `prochainId` pour que les identifiants supprimés ne soient pas réutilisés pendant l’exécution.
 
 ```bash
-curl -i http://localhost:3000/ping
-curl -i http://localhost:3000/citations
-curl -i http://localhost:3000/inconnue
+curl -i http://localhost:3000/citations/1
+curl -i -X POST http://localhost:3000/citations -H 'Content-Type: application/json' -d '{"texte":"On progresse en essayant.","auteur":"Ada"}'
+curl -i -X POST http://localhost:3000/citations -H 'Content-Type: application/json' -d '{"texte":" ","auteur":"Ada"}'
+curl -i -X PUT http://localhost:3000/citations/1 -H 'Content-Type: application/json' -d '{"texte":"Nouvelle version","auteur":"Ada"}'
+curl -i -X DELETE http://localhost:3000/citations/1
+curl -i http://localhost:3000/citations/1
 ```
 
-| Requête | Résultat attendu après l’exercice |
-|---|---|
-| `GET /ping` | `200` et un message en texte brut |
-| `GET /citations` | `200` et le tableau de citations en JSON |
-| `GET /inconnue` | `404` et le message « Route introuvable » en JSON |
-
-Dans `RENDU.md`, note le statut et le contenu des réponses pour `/citations` et `/inconnue`. Explique à quoi servent `req` et `res`. Relève la ligne `Content-Type` des réponses de `/ping` et de `/citations`, puis indique le format renvoyé par chaque route.
-
-[Consignes Git et remise du TP](PARCOURS.md)
+Dans `RENDU.md`, relève le POST invalide et le GET après suppression. Explique d’où viennent les valeurs de `req.params.id` et `req.body`.
