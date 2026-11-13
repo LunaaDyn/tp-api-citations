@@ -1,57 +1,63 @@
-# 02 · Un CRUD avec Express
+# 03 · Enregistrer les citations dans MongoDB Atlas
 
-[Parcours et rendu](PARCOURS.md) · Lance `npm install` puis `npm start`.
+[Parcours et rendu](PARCOURS.md) · Lance `npm install`.
+
+## Prépare Atlas
+
+1. Ouvre ton projet Atlas et sélectionne ton cluster. Crée un utilisateur de base de données avec des droits de lecture et d’écriture pour le TP.
+2. Dans les paramètres d’accès réseau, ajoute l’adresse IP publique actuelle depuis laquelle tu travailles.
+3. Ouvre **Connect → Drivers** pour ton cluster et copie l’URI Node.js. Copie `.env.example` vers `.env` et complète `MONGODB_URI` en remplaçant les valeurs de l’utilisateur de base de données. Si le mot de passe contient des caractères réservés, encode-les dans l’URI.
+4. Vérifie que `git check-ignore .env` affiche `.env`. Garde le fichier `.env.example` vide de tout identifiant de connexion.
+
+[Documentation de connexion MongoDB Atlas](https://www.mongodb.com/docs/atlas/connect-to-database-deployment/)
 
 ## Voir le résultat dans le navigateur
 
-Ouvre [la page EJS](http://localhost:3000/) après avoir démarré le serveur. Rafraîchis-la après une requête d’ajout, de modification ou de suppression pour voir la liste à jour. Les requêtes CRUD se font avec curl, Postman ou Bruno. La route `/ping` renvoie du texte avec `res.send()`, et les routes de l’API utilisent `res.json()` pour les réponses JSON.
+Après avoir complété le schéma et la connexion Atlas, lance `npm start` et ouvre [la page EJS](http://localhost:3000/). Express lit les citations avec `Citation.find()` puis passe la liste à EJS avec `res.render()`. Le navigateur reçoit directement la page HTML.
 
-## Mini-cours · Construire un CRUD en mémoire
+Ajoute une citation avec le formulaire. Le navigateur envoie un POST à `/ajouter-citation` et `express.urlencoded()` rend les champs disponibles dans `req.body`. Après l’enregistrement dans MongoDB, Express redirige le navigateur vers `/` pour afficher la liste à jour. L’affichage et l’ajout fonctionnent sans `fetch()`.
 
-CRUD désigne les quatre actions sur les données. Dans ce TP, le tableau de citations est conservé en mémoire pendant que le serveur tourne. Un redémarrage recharge le tableau de départ.
+Pour les exercices de l’API JSON ci-dessous, utilise curl, Postman ou Bruno. Tu peux aussi redémarrer le serveur puis rouvrir la page EJS pour vérifier que la citation ajoutée avec le formulaire a bien été conservée.
 
-| Action    | Requête               | Où lire les données envoyées                                      |
-| --------- | --------------------- | ----------------------------------------------------------------- |
-| Créer     | `POST /citations`     | `req.body` contient le texte et l’auteur                          |
-| Lire      | `GET /citations/1`    | `req.params.id` vaut `"1"`                                        |
-| Modifier  | `PUT /citations/1`    | L’ID est dans `req.params` et les nouveaux champs dans `req.body` |
-| Supprimer | `DELETE /citations/1` | L’ID est dans `req.params`                                        |
+## Mini-cours · Du tableau JavaScript à MongoDB
 
-### Retrouver une citation
-
-`req.params.id` est une chaîne. Convertis-la avec `Number()` pour la comparer aux identifiants numériques du tableau. `find()` renvoie le premier objet correspondant ou `undefined`. `findIndex()` renvoie sa position ou `-1`. Vérifie que tu as trouvé la citation avant de lire ses propriétés, de la modifier ou d’utiliser `splice()`.
+Une **collection** regroupe des documents. Chaque citation est un document avec un `_id` attribué par MongoDB. Le **schéma** Mongoose décrit les champs et leurs règles. Le **modèle** permet de lire et d’écrire dans la collection. Par exemple, cette déclaration décrit une chaîne obligatoire dont les espaces en début et en fin sont retirés.
 
 ```js
-const id = Number(req.params.id);
-const citation = citations.find((element) => element.id === id);
+titre: { type: String, required: true, trim: true }
 ```
 
-### Vérifier les données et répondre
+Dans le TP, applique cette structure aux champs `texte` et `auteur`. La validation des entrées HTTP permet aussi de vérifier que les valeurs reçues sont bien des chaînes avant de les transmettre à Mongoose.
 
-`express.json()` lit le corps des requêtes envoyées avec `Content-Type: application/json`. Pour POST et PUT, vérifie d’abord le type des champs avec `typeof`, puis retire les espaces au début et à la fin avec `trim()`. Un champ composé uniquement d’espaces devient vide. Quand tu crées une citation, attribue-lui la valeur de `prochainId`, puis incrémente le compteur.
+### Attendre la base de données
 
-Utilise `400` pour une entrée invalide, `404` pour une citation introuvable et `201` après une création. Après une suppression réussie, utilise `res.status(204).end()` pour envoyer une réponse sans corps. Quand tu envoies une réponse d’erreur dans un `if`, utilise `return` pour arrêter la fonction à cet endroit.
+`mongoose.connect()` renvoie une promesse. Dans `demarrer()`, place `await mongoose.connect(...)` avant `app.listen()`. Le serveur commence ainsi à accepter les requêtes une fois la connexion établie. L’URI vient de `process.env.MONGODB_URI` et l’option `dbName` choisit la base.
+
+| Opération | Méthode Mongoose | Résultat attendu |
+|---|---|---|
+| Lister | `await Citation.find()` | Un tableau de documents, éventuellement vide |
+| Créer | `await Citation.create({ texte, auteur })` | Le document enregistré avec son `_id` |
+| Chercher par ID | `await Citation.findById(id)` | Le document trouvé ou `null` |
+
+Avant `findById()`, utilise `mongoose.isObjectIdOrHexString(id)` pour vérifier le format. Un format invalide donne `400`. Si le format est valide mais que la recherche renvoie `null`, réponds `404`.
+
+### Suivre le trajet du formulaire EJS
+
+Le navigateur demande `/`. Express lit la collection et EJS transforme les citations en HTML. Quand tu envoies le formulaire, les champs arrivent dans `req.body` grâce à `express.urlencoded()`. Une fois la citation enregistrée, la redirection `303` demande au navigateur de refaire un `GET /`. La page est alors reconstruite à partir de la liste mise à jour. Pour un POST JSON, c’est `express.json()` qui lit le corps de la requête.
 
 ## À toi de jouer
 
-`GET /citations` fonctionne déjà. Complète les quatre autres routes dans cet ordre.
-
-| Requête                 | Réponse attendue                               |
-| ----------------------- | ---------------------------------------------- |
-| `GET /citations/:id`    | 200 et la citation, ou 404 si elle est absente |
-| `POST /citations`       | 201 et la citation avec un nouvel identifiant  |
-| `PUT /citations/:id`    | 200 et la citation mise à jour, ou 404         |
-| `DELETE /citations/:id` | 204 avec un corps vide, ou 404                 |
-
-Pour POST et PUT, vérifie que `texte` et `auteur` sont des chaînes non vides après `trim()`. Sinon, renvoie 400 et un message JSON. Pour PUT, garde le même identifiant. Utilise `prochainId` pour que les identifiants supprimés ne soient pas réutilisés pendant l’exécution.
+1. Déclare les champs `texte` et `auteur` dans le schéma Mongoose de `server.js` avec `String`, `required` et `trim`.
+2. Complète la connexion avant le démarrage du serveur avec `process.env.MONGODB_URI` et l’option `dbName` réglée sur `tp_citations`. Lance `npm start` et vérifie que `GET /citations` renvoie un tableau.
+3. Ajoute le POST avec `Citation.create`. Enregistre uniquement `texte` et `auteur`. Vérifie comme à la branche précédente que ce sont des chaînes non vides. Réponds 201 avec le document créé, ou 400 si les données sont invalides.
+4. Ajoute `GET /citations/:id` avec `Citation.findById`. Utilise `mongoose.isObjectIdOrHexString` pour renvoyer 400 quand l’identifiant est mal formé et 404 quand il est valide mais absent.
+5. Bonus si tu as le temps. Ajoute PUT et DELETE. Pour PUT, valide les deux champs, applique les validateurs Mongoose à la mise à jour et renvoie le document modifié. Pour DELETE, renvoie 204 sans corps. Les deux routes reprennent les règles 400 et 404 du GET par identifiant.
 
 ```bash
-curl -i http://localhost:3000/citations/1
-curl -i -X POST http://localhost:3000/citations -H 'Content-Type: application/json' -d '{"texte":"On progresse en essayant.","auteur":"Ada"}'
-curl -i -X POST http://localhost:3000/citations -H 'Content-Type: application/json' -d '{"texte":" ","auteur":"Ada"}'
-curl -i -X PUT http://localhost:3000/citations/1 -H 'Content-Type: application/json' -d '{"texte":"Nouvelle version","auteur":"Ada"}'
-curl -i -X DELETE http://localhost:3000/citations/1
-curl -i http://localhost:3000/citations/1
+curl -i -X POST http://localhost:3000/citations -H 'Content-Type: application/json' -d '{"texte":"Je reste après le redémarrage.","auteur":"Ada"}'
+curl -i http://localhost:3000/citations
+curl -i http://localhost:3000/citations/invalide
+curl -i http://localhost:3000/citations/000000000000000000000000
 ```
 
-Dans `RENDU.md`, relève le POST invalide et le GET après suppression. Explique d’où viennent les valeurs de `req.params.id` et `req.body`.
+Copie le `_id` du POST, arrête le serveur, relance `npm start`, puis retrouve la citation sur `/citations/<id>`. Dans `RENDU.md`, indique le résultat du POST et du GET après redémarrage. Explique pourquoi la citation survit au redémarrage et comment tu distingues un identifiant invalide d’une citation absente.

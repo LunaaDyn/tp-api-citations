@@ -8,6 +8,20 @@
 <body>
   <main>
     <h1>Citations</h1>
+    <form action="/ajouter-citation" method="post">
+      <% if (erreur) { %>
+        <p role="alert"><%= erreur %></p>
+      <% } %>
+      <p>
+        <label for="texte">Citation</label>
+        <textarea id="texte" name="texte" required></textarea>
+      </p>
+      <p>
+        <label for="auteur">Auteur</label>
+        <input id="auteur" name="auteur" type="text" required>
+      </p>
+      <button type="submit">Ajouter la citation</button>
+    </form>
     <p><a href="/citations">Voir les citations en JSON</a></p>
 
     <% if (citations.length === 0) { %>

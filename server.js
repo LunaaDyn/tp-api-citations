@@ -1,135 +1,157 @@
 import express from "express";
 import { fileURLToPath } from "node:url";
+import mongoose from "mongoose";
+const citationSchema = new mongoose.Schema({
+    // TODO : déclarer texte et auteur comme chaînes requises et nettoyées.
+});
+const Citation = mongoose.model("Citation", citationSchema);
 
 const app = express();
 app.set("view engine", "ejs");
 app.set("views", fileURLToPath(new URL("./views/", import.meta.url)));
 app.use(express.json());
+app.use(express.urlencoded({ extended: false }));
 
-const citations = [
-    { id: 1, texte: "Apprendre en pratiquant.", auteur: "Équipe du TP" },
-    {
-        id: 2,
-        texte: "If you win, you need not have to explain...If you lose, you should not be there to explain!",
-        auteur: "Adolf Hitler",
-    },
-];
-// let prochainId = 3;      this line is redundant
+app.get("/", async (req, res) => {
+    const citations = await Citation.find();
+    res.render("index", { citations, erreur: null });
+});
 
-app.get("/", (req, res) => {
-    res.render("index", { citations });
+app.post("/ajouter-citation", async (req, res) => {
+    const texte = req.body?.texte;
+    const auteur = req.body?.auteur;
+
+    if (
+        typeof texte !== "string" ||
+        typeof auteur !== "string" ||
+        !texte.trim() ||
+        !auteur.trim()
+    ) {
+        const citations = await Citation.find();
+        return res.status(400).render("index", {
+            citations,
+            erreur: "Renseigne la citation et son auteur.",
+        });
+    }
+
+    await Citation.create({ texte: texte.trim(), auteur: auteur.trim() });
+    res.redirect(303, "/");
 });
 
 app.get("/ping", (req, res) => {
     res.type("text/plain").send("Serveur de citations prêt.");
 });
 
-app.get("/citations", (req, res) => {
-    try {
-        return res.status(200).json(citations);
-    } catch (err) {
-        return res.status(500).json({ message: "Erreur Serveur Interne" });
-    }
+app.get("/citations", async (req, res) => {
+    const citations = await Citation.find();
+    res.json(citations);
 });
 
-app.get("/citations/:id", (req, res) => {
+app.get("/citations/:id", async (req, res) => {
     // TODO : convertir l’ID en nombre, chercher la citation et gérer son absence.
-    try {
-        const reqID = Number(req.params.id);
-        const citation = citations.find((cit) => cit.id === reqID);
-        if (citation) return res.status(200).json(citation);
-        else return res.status(404).json({ message: "Citation Introuvable" });
-    } catch (err) {
-        console.error(err);
-        return res.status(500).json({ message: "Erreur Serveur Interne" });
-    }
+
+    const reqID = Number(req.params.id);
+    const citation = await Citation.find();
+    if (citation) return res.status(200).json(citation);
+    else return res.status(404).json({ message: "Citation Introuvable" });
 });
 
-app.post("/citations", (req, res) => {
+app.post("/citations", async (req, res) => {
     // TODO : valider req.body, créer une citation et incrémenter prochainId.
-    try {
-        const { texte, auteur } = req.body;
-        texte = texte.trim();
-        auteur = texte.trim();
-        if (
-            !texte ||
-            !auteur ||
-            texte === "" ||
-            auteur === "" ||
-            typeof texte !== "string" ||
-            typeof auteur !== "string"
-        )
-            return res.status(400).json({ message: "Mauvaise Requête" });
 
-        const citation = {
-            id: citations[citations.length - 1].id + 1,
-            texte: texte,
-            auteur: auteur,
-        };
+    const { texte, auteur } = req.body;
+    texte = texte.trim();
+    auteur = texte.trim();
+    if (
+        !texte ||
+        !auteur ||
+        texte === "" ||
+        auteur === "" ||
+        typeof texte !== "string" ||
+        typeof auteur !== "string"
+    )
+        return res.status(400).json({ message: "Mauvaise Requête" });
 
-        citations.push(citation);
+    const citation = {
+        id: citations[citations.length - 1].id + 1,
+        texte: texte,
+        auteur: auteur,
+    };
 
-        return res.status(201).json(citation);
-    } catch (err) {
-        console.error(err.message);
-        return res.status(500).json({ message: "Erreur Serveur Interne" });
-    }
+    citations.push(citation);
+
+    return res.status(201).json(citation);
 });
 
-app.put("/citations/:id", (req, res) => {
+app.put("/citations/:id", async (req, res) => {
     // TODO : retrouver la citation et remplacer texte et auteur après validation.
-    try {
-        const reqID = Number(req.params.id);
-        const { texte, auteur } = req.body;
-        texte = texte.trim();
-        auteur = texte.trim();
-        if (
-            !texte ||
-            !auteur ||
-            texte === "" ||
-            auteur === "" ||
-            typeof texte !== "string" ||
-            typeof auteur !== "string"
-        )
-            return res.status(400).json({ message: "Mauvaise Requête" });
 
-        const citationIndex = citations.findIndex((cit) => cit.id == reqID);
+    const reqID = Number(req.params.id);
+    const { texte, auteur } = req.body;
+    texte = texte.trim();
+    auteur = texte.trim();
+    if (
+        !texte ||
+        !auteur ||
+        texte === "" ||
+        auteur === "" ||
+        typeof texte !== "string" ||
+        typeof auteur !== "string"
+    )
+        return res.status(400).json({ message: "Mauvaise Requête" });
 
-        if ((!citationIndex && citationIndex !== 0) || citationIndex < 0)
-            return res.status(404).json({ message: "Citation Introuvable" });
+    const citationIndex = citations.findIndex((cit) => cit.id == reqID);
 
-        const newCitation = {
-            id: citations[citationIndex].id,
-            texte: texte,
-            auteur: auteur,
-        };
+    if ((!citationIndex && citationIndex !== 0) || citationIndex < 0)
+        return res.status(404).json({ message: "Citation Introuvable" });
 
-        citations[citationIndex] = newCitation;
+    const newCitation = {
+        id: citations[citationIndex].id,
+        texte: texte,
+        auteur: auteur,
+    };
 
-        return res.status(200).json(newCitation);
-    } catch (err) {
-        return res.status(500).json({ message: "Erreur Serveur Interne" });
-    }
+    citations[citationIndex] = newCitation;
+
+    return res.status(200).json(newCitation);
 });
 
-app.delete("/citations/:id", (req, res) => {
+app.delete("/citations/:id", async (req, res) => {
     // TODO : retirer la citation du tableau et terminer la réponse.
-    try {
-        const reqID = Number(req.params.id);
+    const reqID = Number(req.params.id);
 
-        const citationIndex = citations.findIndex((cit) => cit.id == reqID);
+    const citationIndex = citations.findIndex((cit) => cit.id == reqID);
 
-        if ((!citationIndex && citationIndex !== 0) || citationIndex < 0)
-            return res.status(404).json({ message: "Citation Introuvable" });
+    if ((!citationIndex && citationIndex !== 0) || citationIndex < 0)
+        return res.status(404).json({ message: "Citation Introuvable" });
 
-        citations.splice(citationIndex, 1);
+    citations.splice(citationIndex, 1);
 
-        return res.status(204).send(); // My Postman struggles if it doesn't receive any kind of response
-    } catch (err) {
-        return res.status(500).json({ message: "Erreur Serveur Interne" });
-    }
+    return res.status(204).send(); // My Postman struggles if it doesn't receive any kind of response
 });
 
-app.listen(3000, () => {
-    console.log("API disponible sur http://localhost:3000");
+app.use((err, req, res, next) => {
+    if (err.status === 400 || err.name === "ValidationError") {
+        return res.status(400).json({ message: "Données invalides" });
+    }
+
+    console.error(err.message);
+    res.status(500).json({ message: "Erreur serveur" });
+});
+
+async function demarrer() {
+    // TODO : attendre mongoose.connect avec MONGODB_URI et dbName « tp_citations ».
+    MongoClient.connect(process.env.MONGODB_URI, function (err, db) {
+        db.close();
+    });
+    app.listen(3000, () => {
+        console.log("API disponible sur http://localhost:3000");
+    });
+}
+
+demarrer().catch(() => {
+    console.error(
+        "Connexion Atlas impossible. Vérifie .env et la configuration Atlas.",
+    );
+    process.exitCode = 1;
 });
