@@ -54,8 +54,17 @@ app.post("/citations", (req, res) => {
         )
             return res.status(400).json({ message: "Mauvaise Requête" });
 
-        return res.status(201).json(citations);
+        const citation = {
+            texte: texte,
+            auteur: auteur,
+            id: citations[citations.length - 1].id + 1,
+        };
+
+        citations.push(citation);
+
+        return res.status(201).json(citation);
     } catch (err) {
+        console.error(err.message);
         return res.status(501).json({ message: "Erreur Serveur Interne" });
     }
 });
