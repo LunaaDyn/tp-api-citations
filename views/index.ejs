@@ -1,0 +1,25 @@
+<!doctype html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Citations</title>
+</head>
+<body>
+  <main>
+    <h1>Citations</h1>
+    <p><a href="/citations">Voir les citations en JSON</a></p>
+
+    <% if (citations.length === 0) { %>
+      <p>Aucune citation pour le moment.</p>
+    <% } %>
+
+    <% for (const citation of citations) { %>
+      <figure>
+        <blockquote><%= citation.texte %></blockquote>
+        <figcaption><%= citation.auteur %></figcaption>
+      </figure>
+    <% } %>
+  </main>
+</body>
+</html>
