@@ -22,7 +22,7 @@ app.get("/citations", (req, res) => {
     try {
         res.status(200).json(citations);
     } catch (err) {
-        res.status(501).json({ message: "Erreur Serveur Interne" });
+        res.status(500).json({ message: "Erreur Serveur Interne" });
     }
 });
 
